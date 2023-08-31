@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Sheets Data Retrieval</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        /* .all-tabs-container {
+            box-shadow: 0 0.5rem 0.8rem #00000080;
+            display: flex;
+            justify-content: center;
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            gap: 20px;
+        } */
+    
+        /* Style for the tab container */
+        .tabs {
+            /* box-shadow: 0 0.5rem 0.8rem #00000080; */
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        /* Add space between tab sections */
+        .week-tabs-container,
+        .project-tabs-container {
+            /* box-shadow: 0 0.5rem 0.8rem #00000080; */
+            margin-top: 20px;
+        }
+    
+        /* Style for tab buttons */
+        .tab-button {
+            cursor: pointer;
+            padding: 10px 20px;
+            margin: 0px 2px;
+            background: #3c3c3c;
+            color: #fff;
+            border: none;
+            border-radius: 3px 3px 0 0;
+            /* box-shadow: 0 0.5rem 0.8rem rgba(0, 0, 0, 0.2); */
+        }
+
+        .button.active {
+            background: #000000;
+        }
+    
+        /* Style for active tab */
+        .tab-button.active {
+            background: #000000;
+        }
+
+        #filterButton {
+            background-color: #3c3c3c;
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            cursor: pointer;
+            margin-top: 10px;
+            padding: 8px 15px;
+            display: inline-block;
+            margin-left: 10px;
+            /* box-shadow: 0 0.5rem 0.8rem #00000080; */
+        }
+
+        /* Additional styles for the larger input elements */
+        #annotatorIdInput {
+            font-size: 16px;
+            padding: 5px;
+            width: 200px;
+            margin-bottom: 20px;
+        }
+    
+        /* Style for the data container */
+        .data-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin-top: 20px;
+        padding: 20px;
+        background-color: #fff;
+        /* box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1); */
+        border-radius: 5px;
+    }
+    
+        /* Style for the table */
+        .dataGrid {
+            border-collapse: collapse;
+            width: 100%;
+            background-color: white;
+            margin-top: 20px;
+            align-self: center;
+        }
+
+        /* Style for table header */
+        .dataGrid th {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: left;
+            background-color: #f2f2f2;
+        }
+
+        /* Style for table cells */
+        .dataGrid td {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .placeholder {
+            text-align: center;
+        	font-size: 24px; /* Adjust the font size as needed */
+        	opacity: 0.8;
+        	margin-top: 50px; /* Add some space from the top */
+        }
+
+        /* Style for high accuracy */
+        .high-accuracy {
+            background-color: green;
+            color: white;
+            padding: 5px;
+            border-radius: 3px;
+        }
+    
+        /* Style for low accuracy */
+        .low-accuracy {
+            background-color: red;
+            color: white;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .tab-button.active {
+            background: #000000;
+            color: #fff;
+        }
+
+        .week-tab.active, .project-tab.active {
+            background: #000000;
+            color: #fff;
+        }
+
+
+    </style>
+    
+    
+</head>
+<body>
+    <!-- <h1>Week Tab</h1> -->
+
+    <!-- <div class="all-tabs-container">
+        <div class="tabs">
+            <button class="tab-button" id="classificationTab">Image Classification</button>
+            <button class="tab-button" id="annotationTab">Image Annotation</button>
+        </div>
+        
+        <div class="week-tabs-container" id="weekTabsContainer" style="display: none;"></div>
+        <div class="project-tabs-container" id="projectTabsContainer" style="display: none;"></div>
+    </div> -->
+    
+    <div class="tabs">
+        <button class="tab-button" id="classificationTab">Image Classification</button>
+        <button class="tab-button" id="annotationTab">Image Annotation</button>
+    </div>
+    
+    <div class="week-tabs-container" id="weekTabsContainer" style="display: none;"></div>
+    <div class="project-tabs-container" id="projectTabsContainer" style="display: none;"></div>
+
+    
+    <div id="dataContainer">
+        <p class="placeholder">Click on a tab to view data</p>
+    </div>
+    
+    <script>
+        const classificationTabButton = document.getElementById("classificationTab");
+        const annotationTabButton = document.getElementById("annotationTab");
+        const weekTabsContainer = document.getElementById("weekTabsContainer");
+        const projectTabsContainer = document.getElementById("projectTabsContainer");
+        const dataContainer = document.getElementById("dataContainer");
+        let classificationData = [];
+        let annotationData = [];
+        let currentFilteredData = [];
+        let selectedTab = "Image Classification"; // Default selected tab
+        let selectedWeek = null;
+
+        classificationTabButton.addEventListener("click", () => {
+            selectedTab = "Image Classification";
+            clearDataAndWeekTabs();
+            fetchClassificationData();
+
+            // Toggle the active class on the clicked tab and remove it from others
+            classificationTabButton.classList.add("active");
+            annotationTabButton.classList.remove("active");
+        });
+
+        annotationTabButton.addEventListener("click", () => {
+            selectedTab = "Image Annotation";
+            clearDataAndWeekTabs();
+            fetchAnnotationData();
+
+            // Toggle the active class on the clicked tab and remove it from others
+            annotationTabButton.classList.add("active");
+            classificationTabButton.classList.remove("active");
+        });
+
+
+        function clearDataAndWeekTabs() {
+            weekTabsContainer.innerHTML = "";
+            projectTabsContainer.innerHTML = "";
+            dataContainer.innerHTML = "";
+            classificationData = [];
+            annotationData = [];
+            selectedWeek = null;
+        }
+
+        function fetchClassificationData() {
+            gapi.load("client", initClient);
+
+            function initClient() {
+                gapi.client.init({
+                    apiKey: "AIzaSyATmqw9OCHZrbU2fnwQ3eC2gkwYp5_GLc0", // Your Google Sheets API Key
+                    discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+                }).then(function() {
+                    // Fetch data from the Google Sheet for classification
+                    gapi.client.sheets.spreadsheets.values.get({
+                        spreadsheetId: "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds", // ID of your Google Sheet
+                        range: "Image Classification Scorecards!A2:K", // Fetch columns D to K
+                    }).then(function(response) {
+                        const data = response.result.values;
+                        classificationData = data;
+                        populateWeekTabs(data);
+                    });
+                });
+            }
+        }
+
+        function fetchAnnotationData() {
+            gapi.load("client", initClient);
+
+            function initClient() {
+                gapi.client.init({
+                    apiKey: "AIzaSyATmqw9OCHZrbU2fnwQ3eC2gkwYp5_GLc0", // Your Google Sheets API Key
+                    discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+                }).then(function() {
+                    // Fetch data from the Google Sheet for annotation
+                    gapi.client.sheets.spreadsheets.values.get({
+                        spreadsheetId: "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds", // ID of your Google Sheet
+                        range: "Image Annotation Scorecards!A2:N", // Fetch columns D to N
+                    }).then(function(response) {
+                        const data = response.result.values;
+                        annotationData = data;
+                        populateWeekTabs(data);
+                    });
+                });
+            }
+        }
+
+        function populateWeekTabs(data) {
+    const filteredData = data.filter(row => row[1] === "July" && row[0] === "2023"); // Month at index 1, Year at index 0
+    const weekColumn = filteredData.map(row => row[2]); // Assuming Week column is at index 2
+    const uniqueWeeks = Array.from(new Set(weekColumn));
+
+    weekTabsContainer.innerHTML = "";
+
+    uniqueWeeks.forEach(week => {
+        const tabButton = document.createElement("button");
+        tabButton.className = "tab-button";
+        tabButton.textContent = week;
+        weekTabsContainer.appendChild(tabButton);
+
+        tabButton.addEventListener("click", () => {
+            selectedWeek = week;
+            fetchAndPopulateData(selectedWeek); // Fetch and populate data when week tab is clicked
+
+            // Toggle the active class on the clicked tab and remove it from others
+            tabButton.classList.add("active");
+        });
+    });
+
+    weekTabsContainer.style.display = "block";
+}
+
+function fetchAndPopulateData(week) {
+    dataContainer.innerHTML = ""; // Clear the data container
+
+    const data = selectedTab === "Image Classification" ? classificationData : annotationData;
+    const filteredData = filterDataByWeek(data, week);
+    currentFilteredData = filteredData; // Store the filtered data
+    populateProjectTabs(filteredData); // Use filteredData to populate project tabs
+}
+
+function populateProjectInfo(projectName, week, filteredData) {
+            gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds", // ID of your Google Sheet
+                range: `Overall project scores!A:G`, // Range to fetch data from 'Overall project scores' tab
+            }).then(function(response) {
+                // const projectInfo = response.result.values.find(row => row[2] === week && row[4] === projectName);
+                // console.log("Fetched Project Info:", projectInfo); // Add this line
+                console.log("Searching for week:", week);
+                console.log("Searching for project:", projectName);
+                const projectInfo = response.result.values.find(row => {
+                    console.log("Current row:", row);
+                    return row[2].toLowerCase() === week.toLowerCase() && row[4].toLowerCase() === projectName.toLowerCase();
+                });
+                console.log("Fetched Project Info:", projectInfo);
+
+                if (projectInfo) {
+                    const projectInfoContainer = document.createElement("div");
+                    
+                    // Create the Annotator ID input field and filter button
+                    const annotatorIdInput = document.createElement("input");
+                    annotatorIdInput.setAttribute("type", "text");
+                    annotatorIdInput.setAttribute("placeholder", "Enter Annotator ID");
+                    annotatorIdInput.id = "annotatorIdInput";
+
+                    const filterButton = document.createElement("button");
+                    filterButton.id = "filterButton";
+                    filterButton.textContent = "Filter";
+                    filterButton.addEventListener("click", () => {
+                        const annotatorId = document.getElementById("annotatorIdInput").value.trim();
+                        if (annotatorId === "") {
+                            populateProjectInfo(projectName, week, filteredData)
+                            displayData(filteredData); // Display full data if annotator ID is empty
+                        } else {
+                            currentFilteredData = filterDataByAnnotatorId(filteredData, annotatorId);
+                            if (currentFilteredData.length === 0){
+                                dataContainer.innerHTML = "";
+                                projectInfoContainer.innerHTML = "";
+
+                                const message = document.createElement("p");
+                                message.textContent = "No data found for the provided Annotator ID. Please check that you typed in the correct annotator ID. Otherwise, participate in more projects to view your score.";
+                                dataContainer.appendChild(message);
+                                // dataContainer.insertBefore(message, dataContainer.firstChild)
+                            } else {
+                            populateProjectInfo(projectName, week, filteredData)
+                            displayData(currentFilteredData);
+                            }
+                        }
+                    });
+
+                    const projectInfoName = document.createElement("p");
+                    projectInfoName.textContent = `Project Name: ${projectInfo[4]}`;
+
+                    const projectInfoID = document.createElement("p");
+                    projectInfoID.textContent = `Project ID: ${projectInfo[5]}`;
+
+                    const projectInfoType = document.createElement("p");
+                    projectInfoType.textContent = `Project Type: ${projectInfo[3]}`;
+
+                    const projectInfoAccuracy = document.createElement("p");
+                    projectInfoAccuracy.textContent = `Overall Project Accuracy: ${projectInfo[6]}`;
+
+                    // Determine the accuracy value and set the CSS class
+                    const accuracyValue = parseFloat(projectInfo[6]);
+                        if (accuracyValue >= 90) {
+                            projectInfoAccuracy.classList.add("high-accuracy");
+                        } else {
+                            projectInfoAccuracy.classList.add("low-accuracy");
+                        }
+
+                    projectInfoContainer.appendChild(projectInfoName);
+                    projectInfoContainer.appendChild(projectInfoID);
+                    projectInfoContainer.appendChild(projectInfoType);
+                    projectInfoContainer.appendChild(projectInfoAccuracy);
+
+                    dataContainer.appendChild(annotatorIdInput);
+                    dataContainer.appendChild(filterButton);
+
+                    dataContainer.insertBefore(filterButton, dataContainer.firstChild);
+                    dataContainer.insertBefore(annotatorIdInput, dataContainer.firstChild);
+                    
+                    dataContainer.appendChild(projectInfoContainer);
+
+                    dataContainer.insertBefore(projectInfoContainer, dataContainer.firstChild);
+
+                }
+            });
+        }
+
+
+        function filterDataByAnnotatorId(data, annotatorId) {
+            const columnIndex = selectedTab === "Image Classification" ? 6 : 6;
+            return data.filter(row => row[columnIndex] === annotatorId);
+        }
+
+
+        function populateProjectTabs(data) {
+            const projectColumn = data.map(row => row[4]); // Assuming Project Name column is at index 4
+            const uniqueProjects = Array.from(new Set(projectColumn));
+
+            projectTabsContainer.innerHTML = "";
+
+            uniqueProjects.forEach(project => {
+                const tabButton = document.createElement("button");
+                tabButton.className = "tab-button";
+                tabButton.textContent = project;
+                projectTabsContainer.appendChild(tabButton);
+
+                tabButton.addEventListener("click", () => {
+                    const filteredData = filterDataByProject(data, project);
+                    currentFilteredData = filteredData; // Store the filtered data
+                    dataContainer.innerHTML = ""; // Clear the data container
+                    // populateProjectTabs(filteredData);
+                    populateProjectInfo(project, selectedWeek, filteredData); // Fetch and display project info
+                    displayData(filteredData);
+
+                    tabButton.classList.add("active");
+
+                    document.querySelectorAll('.project-tab-button').forEach(btn => {
+                        if (btn.textContent === project) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                });
+            });
+
+            projectTabsContainer.style.display = "block";
+        }
+
+        function filterDataByWeek(data, week) {
+            return data.filter(row => row[2] === week);
+        }
+
+        function filterDataByProject(data, project) {
+            return data.filter(row => row[4] === project);
+        }
+
+        function displayData(data) {
+            // var selectedTab = ""; // Set the selectedTab value based on your logic
+
+            // if (data.length === 0){
+            //     dataContainer.innerHTML = "";
+            //     projectInfoContainer.innerHTML = "";
+
+            //     const message = document.createElement("p");
+            //     message.textContent = "No data found for the provided Annotator ID. Participate in more projects to view your score.";
+            //     dataContainer.appendChild(message);
+            //     dataContainer.insertBefore(message, dataContainer.firstChild)
+
+            //     return;
+            // }
+
+            var columnsToShow = [];
+            var columnHeadings = [];
+
+            if (selectedTab === "Image Classification") {
+                columnsToShow = [6, 7, 8, 9];
+                columnHeadings = ["Annotator ID", "Correct Answers", "Wrong Answers", "Accuracy Score"];
+            } else if (selectedTab === "Image Annotation") {
+                columnsToShow = [6, 7, 8, 9, 10, 11, 12];
+                columnHeadings = ["Annotator ID", "Correct Annotations", "Misdrawn Annotations", "Mislabeled Annotations", "Extra Annotations", "Missing Annotations", "Accuracy Score"];
+            }
+
+            var table = document.createElement("table");
+            table.classList.add("dataGrid");
+
+            // Clear the table
+            while (table.firstChild) {
+                table.removeChild(table.firstChild);
+            }
+
+            // Create table header
+            var header = document.createElement("tr");
+            for (var i = 0; i < columnHeadings.length; i++) {
+                var th = document.createElement("th");
+                th.appendChild(document.createTextNode(columnHeadings[i]));
+                header.appendChild(th);
+            }
+            table.appendChild(header);
+
+            // Create table rows
+            for (var j = 0; j < data.length; j++) {
+                var rowData = data[j];
+                var row = document.createElement("tr");
+
+                for (var k = 0; k < columnsToShow.length; k++) {
+                var cellData = rowData[columnsToShow[k]];
+                var cell = document.createElement("td");
+                cell.appendChild(document.createTextNode(cellData));
+                row.appendChild(cell);
+                }
+
+                table.appendChild(row);
+
+        var dataContainer = document.getElementById("dataContainer");
+        dataContainer.innerHTML = "";
+        dataContainer.appendChild(table);
+        }
+    }
+    </script>
+</body>
+</html>

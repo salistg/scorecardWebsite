@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Annotator Data Analysis</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+        .filter-container {
+            display: none;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chart-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart {
+            margin-top: 10px;
+        }
+
+        .placeholder {
+            text-align: center;
+            font-size: 24px;
+            opacity: 0.8;
+            margin-top: 10px;
+        }
+
+        .paragraph-text {
+            font-size: 22px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            align-self: center;
+        }
+
+        .accuracy-text {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            align-self: center;
+        }
+
+        #filterButton {
+            background-color: #3c3c3c;
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            cursor: pointer;
+            margin-top: 10px;
+            padding: 8px 15px;
+            display: inline-block;
+            margin-left: 10px;
+            margin-bottom: 20px;
+        }
+
+        #annotatorIdInput {
+            font-size: 16px;
+            padding: 5px;
+            width: 200px;
+            margin-bottom: 20px;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- <h1>Annotator Data Analysis</h1> -->
+    
+    <div class="filter-container">
+        <!-- <label for="annotatorIdInput">Enter Annotator ID:</label> -->
+        <input type="text" id="annotatorIdInput" placeholder="Enter Annotator ID">
+        <button id="filterButton">Filter</button>
+    </div>
+    
+    <!-- <div class="chart-container">
+        <p class="placeholder" id="annotationPlaceholder">Enter Annotator ID to view data</p>
+        <p id="imageAnnotationText"></p>
+        <p id="annotationAccuracyText"></p>
+        <div class="chart" id="annotationChart"></div> 
+    </div>
+
+    <div class="chart-container">
+        <p id="imageClassificationText"></p>
+        <p id="classificationAccuracyText"></p>
+        <div class="chart" id="classificationChart"></div>
+    </div> -->
+
+    <div class="chart-container">
+        <p class="placeholder" id="annotationPlaceholder">Enter Annotator ID to view data</p>
+        <p class="paragraph-text" id="imageAnnotationText" style="display: none;">Image Annotation</p>
+        <p class="accuracy-text" id="annotationAccuracyText" style="display: none;"></p>
+        <div class="chart" id="annotationChart"></div> 
+    </div>
+
+    <div class="chart-container">
+        <p class="paragraph-text" id="imageClassificationText" style="display: none;">Image Classification</p>
+        <p class="accuracy-text" id="classificationAccuracyText" style="display: none;"></p>
+        <div class="chart" id="classificationChart"></div>
+    </div>
+    
+    <script>
+        const apiKey = "AIzaSyATmqw9OCHZrbU2fnwQ3eC2gkwYp5_GLc0";
+        const spreadsheetId = "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds";
+        
+        const filterButton = document.getElementById("filterButton");
+        const annotationPlaceholder = document.getElementById("annotationPlaceholder");
+        const annotationChartContainer = document.getElementById("annotationChart");
+        const annotationAccuracyText = document.getElementById("annotationAccuracyText");
+        const classificationChartContainer = document.getElementById("classificationChart");
+        const classificationAccuracyText = document.getElementById("classificationAccuracyText");
+        
+        filterButton.addEventListener("click", () => {
+            const annotatorId = document.getElementById("annotatorIdInput").value.trim();
+            if (annotatorId !== "") {
+                fetchDataAndDisplay(annotatorId);
+            }
+        });
+
+        function fetchDataAndDisplay(annotatorId) {
+            gapi.load("client", initClient);
+
+            function initClient() {
+                gapi.client.init({
+                    apiKey: apiKey,
+                    discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+                }).then(function() {
+                    gapi.client.sheets.spreadsheets.values.get({
+                        spreadsheetId: spreadsheetId,
+                        range: "Image Annotation All Mistakes & Accuracies!A2:G", // Adjust the range
+                    }).then(function(response) {
+                        const annotationData = response.result.values;
+                        const filteredAnnotationData = filterDataByAnnotator(annotationData, annotatorId);
+
+                        if (filteredAnnotationData.length > 0) {
+                            displayAnnotationChart(filteredAnnotationData);
+                            displayAnnotationAccuracy(filteredAnnotationData[0][6]);
+                            annotationPlaceholder.style.display = "none";
+                        } else {
+                            annotationChartContainer.innerHTML = "";
+                            annotationAccuracyText.textContent = "No data found for the provided Annotator ID. Please check that you typed in the correct annotator ID. Otherwise, participate in more projects to view your score.";
+                            // annotationPlaceholder.style.display = "block";
+                        }
+                    });
+
+                    gapi.client.sheets.spreadsheets.values.get({
+                        spreadsheetId: spreadsheetId,
+                        range: "Image Classification All Mistakes & Accuracies!A2:D", // Adjust the range
+                    }).then(function(response) {
+                        const classificationData = response.result.values;
+                        const filteredClassificationData = filterDataByAnnotator(classificationData, annotatorId);
+
+                        if (filteredClassificationData.length > 0) {
+                            displayClassificationChart(filteredClassificationData);
+                            displayClassificationAccuracy(filteredClassificationData[0][3]);
+                            classificationPlaceholder.style.display = "none";
+                        } else {
+                            classificationChartContainer.innerHTML = "";
+                            classificationAccuracyText.textContent = "No data found for the provided Annotator ID. Please check that you typed in the correct annotator ID. Otherwise, participate in more projects to view your score.";
+                            // classificationPlaceholder.style.display = "block";
+                        }
+                    });
+                });
+            }
+        }
+
+        function filterDataByAnnotator(data, annotatorId) {
+            return data.filter(row => row[0] === annotatorId);
+        }
+
+        function displayAnnotationChart(data) {
+            const misdrawn = parseInt(data[0][2]);
+            const mislabel = parseInt(data[0][3]);
+            const extra = parseInt(data[0][4]);
+            const missing = parseInt(data[0][5]);
+
+            const chartData = [
+                {
+                    x: ['Misdrawn', 'Mislabel', 'Extra', 'Missing'],
+                    y: [misdrawn, mislabel, extra, missing],
+                    type: 'bar',
+                    marker: { color: ["blue", "purple", "orange", "gray"] }
+                }
+            ];
+
+            const chartLayout = {
+                title: 'Annotation Mistakes',
+                xaxis: {
+                    title: 'Mistake Type'
+                },
+                yaxis: {
+                    title: 'No. of Annotations'
+                }
+                ,
+                plot_bgcolor: '#f2f2f2',  // Set the background color of the plot area
+                paper_bgcolor: '#f2f2f2', // Set the background color of the entire chart
+            };
+
+            Plotly.newPlot(annotationChartContainer, chartData, chartLayout);
+        }
+
+        function displayAnnotationAccuracy(accuracy) {
+            imageAnnotationText.textContent = 'Image Annotation';
+            imageAnnotationText.style.display = "block";
+            annotationAccuracyText.textContent = `Lifetime Accuracy: ${accuracy}`;
+            annotationAccuracyText.style.display = "block";
+        }
+
+        function displayClassificationChart(data) {
+            const chartData = [
+                {
+                    x: ['Correct Answers', 'Wrong Answers'],
+                    y: [parseInt(data[0][1]), parseInt(data[0][2])],
+                    type: 'bar',
+                    marker: { color: ["green", "red"] }
+                }
+            ];
+
+            const chartLayout = {
+                title: 'Correct vs Wrong Answers',
+                xaxis: {
+                    title: 'Answers'
+                },
+                yaxis: {
+                    title: 'No. of Answers'
+                },
+                plot_bgcolor: '#f2f2f2',  // Set the background color of the plot area
+                paper_bgcolor: '#f2f2f2', // Set the background color of the entire chart
+            };
+
+            Plotly.newPlot(classificationChartContainer, chartData, chartLayout);
+        }
+
+        function displayClassificationAccuracy(accuracy) {
+            imageClassificationText.textContent = 'Image Classification';
+            imageClassificationText.style.display = "block";
+            classificationAccuracyText.textContent = `Lifetime Accuracy: ${accuracy}`;
+            classificationAccuracyText.style.display = "block";
+        }
+    </script>
+</body>
+</html>

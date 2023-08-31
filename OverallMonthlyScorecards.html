@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Monthly Data Retrieval</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f2f2f2;
+        }
+
+        .placeholder {
+            text-align: center;
+        	font-size: 24px; /* Adjust the font size as needed */
+        	opacity: 0.8;
+        	margin-top: 50px; /* Add some space from the top */
+    }
+        
+        .tabs {
+            background-color: #f2f2f2;
+            /* box-shadow: 0 0.5rem 0.8rem #00000080; */
+            display: flex;
+            justify-content: center;
+            padding: 10px 0;
+        }
+
+        .tab-button {
+            background-color: #3c3c3c;
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            cursor: pointer;
+            margin: 0 10px;
+            padding: 8px 15px;
+            /* box-shadow: 0 0.5rem 0.8rem #00000080; */
+        }
+
+        .tab-button.active {
+            background-color: #000000;
+        }
+
+        .filter-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Additional styles for the larger input elements */
+        #projectTypeFilter, #annotatorFilter {
+            font-size: 16px;
+            padding: 5px;
+            width: 200px;
+        }
+
+        #filterButton {
+            background-color: #3c3c3c;
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            cursor: pointer;
+            margin-top: 10px;
+            padding: 8px 15px;
+            display: inline-block;
+            /* box-shadow: 0 0.5rem 0.8rem #00000080; */
+        }
+
+        #popupMessage {
+            color: red;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        #chartTitle {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        #barChart {
+            margin-top: 10px;
+            background-color: #f2f2f2;
+        }
+
+        #dataContainer {
+            margin-top: 20px;
+            padding: 10px;
+            /* border: 1px solid #ddd; */
+            /* box-shadow: 0 0.5rem 0.8rem #00000080; */
+            background-color: #f2f2f2;
+        }
+
+        /* Style for the table */
+        .dataGrid {
+            border-collapse: collapse;
+            width: 100%;
+            background-color: white;
+            margin-top: 20px;
+            align-self: center;
+        }
+
+        /* Style for table header */
+        .dataGrid th {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: left;
+            background-color: #f2f2f2;
+        }
+
+        /* Style for table cells */
+        .dataGrid td {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+    </style>
+</head>
+<body>
+    <!-- <h1>Monthly Data Retrieval</h1> -->
+    
+    <div class="tabs">
+        <button class="tab-button" id="classificationTab">Image Classification</button>
+        <button class="tab-button" id="annotationTab">Image Annotation</button>
+    </div>
+
+    <!-- <div id="filterContainer"></div>
+    <button id="filterButton" style="display: none;">Filter</button>
+    <div id="popupMessage" style="display: none;"></div> -->
+
+    <div class="filter-container">
+        <label for="projectTypeFilter" id="projectTypeLabel" style="display: none;">Project type:</label>
+        <select id="projectTypeFilter" style="display: none;">
+            <option value="all">All Project Types</option>
+        </select>
+        <label for="annotatorFilter" id="annotatorIDLabel" style="display: none;">Annotator ID:</label>
+        <input type="text" id="annotatorFilter" placeholder="Enter Annotator ID" style="display: none;">
+        <button id="filterButton" style="display: none;">Filter</button>
+        <div id="popupMessage" style="display: none;"></div>
+    </div>
+
+
+    <div id="chartTitle"></div>
+    <div id="barChart"></div>
+    <div id="dataContainer">
+        <p class="placeholder">Click on a tab to view data</p>
+    </div>
+
+    <script>
+        const filterButton = document.getElementById("filterButton");
+
+        const classificationTabButton = document.getElementById("classificationTab");
+        const annotationTabButton = document.getElementById("annotationTab");
+
+        const filterContainer = document.getElementById("filterContainer");
+        const dataContainer = document.getElementById("dataContainer");
+
+        const projectTypeFilter = document.getElementById("projectTypeFilter");
+        const annotatorFilter = document.getElementById("annotatorFilter");
+
+        const projectTypeLabel = document.getElementById("projectTypeLabel");
+        const annotatorLabel = document.getElementById("annotatorIDLabel");
+
+        let selectedTab = "Image Classification";
+        let filteredData = [];
+        let projectTypes = new Set(getUniqueProjectTypes()); // Populate this only once when the page loads
+
+        classificationTabButton.addEventListener("click", () => {
+            selectedTab = "Image Classification";
+            fetchData();
+            if (selectedTab === "Image Classification") {
+                hideFilter();
+            }
+            clearAnnotatorFilter(); // Clear the annotator ID filter
+            showAnnotatorFilters();
+
+             // Toggle the active class on the clicked tab and remove it from others
+             classificationTabButton.classList.add("active");
+             annotationTabButton.classList.remove("active");
+
+             annotatorLabel.style.display = "block";
+        });
+
+        annotationTabButton.addEventListener("click", () => {
+            selectedTab = "Image Annotation";
+            fetchData();
+            if (selectedTab === "Image Annotation") {
+                showFilter();
+            }
+            clearAnnotatorFilter(); // Clear the annotator ID filter
+            showAnnotatorFilters();
+
+             // Toggle the active class on the clicked tab and remove it from others
+             classificationTabButton.classList.remove("active");
+             annotationTabButton.classList.add("active");
+
+             projectTypeLabel.style.display = "block";
+             annotatorLabel.style.display = "block";
+        });
+
+        function clearAnnotatorFilter() {
+            annotatorFilter.value = ""; // Clear the input value
+        }
+
+    //     function showFilterButton() {
+    //     filterButton.style.display = "block";
+    // }
+
+    // function hideFilterButton() {
+    //     filterButton.style.display = "none";
+    // }
+
+        annotatorFilter.addEventListener("input", () => {
+            // filterDataAndDisplay();
+        });
+
+        function fetchData() {
+            gapi.load("client", () => {
+                gapi.client.init({
+                    apiKey: "AIzaSyATmqw9OCHZrbU2fnwQ3eC2gkwYp5_GLc0",
+                    discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+                }).then(() => {
+                    const sheetId = "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds";
+                    const range = selectedTab === "Image Classification" ? "Overall image classification scores!A1:F" : "Overall image annotation scores!A1:J";
+                    gapi.client.sheets.spreadsheets.values.get({
+                        spreadsheetId: sheetId,
+                        range: range,
+                    }).then(response => {
+                        const data = response.result.values;
+                        // projectTypes = getUniqueProjectTypes(data);
+                        filteredData = filterDataByMonthAndYear(data);
+                        if (filteredData.length > 0) {
+                            displayData(filteredData);
+                        } else {
+                            dataContainer.innerHTML = `No ${selectedTab} data available for July 2023.`;
+                        }
+                    });
+                });
+            });
+        }
+
+        function filterDataByMonthAndYear(data) {
+            const filteredData = data.filter((row, index) => index > 0 && row[1] === "July" && row[0] === "2023");
+            return filteredData;
+        }
+
+        filterButton.addEventListener("click", () => {
+            if (annotatorFilter.value.trim() === "") {
+                showPopupMessage("Please enter an annotator ID");
+                setTimeout(hidePopupMessage, 3000); // Hide the message after 3 seconds
+                displayData(filteredData); // Display the data as is
+            } else {
+                filterDataAndDisplay();
+            }
+    });
+
+        function showPopupMessage(message) {
+            const popupMessage = document.getElementById("popupMessage");
+            popupMessage.textContent = message;
+            popupMessage.style.display = "block";
+    }
+
+        function hidePopupMessage() {
+            const popupMessage = document.getElementById("popupMessage");
+            popupMessage.textContent = "";
+            popupMessage.style.display = "none";
+        }
+
+
+
+    function filterDataAndDisplay() {
+    const annotatorId = annotatorFilter.value.trim();
+    const filteredDataByAnnotator = filterDataByAnnotator(filteredData, annotatorId);
+    
+    if (selectedTab === "Image Annotation") {
+        const selectedProjectType = projectTypeFilter.value;
+        
+        if (selectedProjectType === "all") {
+            displayData(filteredDataByAnnotator); // Display data filtered by annotator ID only
+        } else {
+            const filteredDataByAnnotatorAndProjectType = filterDataByProjectType(filteredDataByAnnotator, selectedProjectType);
+            displayData(filteredDataByAnnotatorAndProjectType);
+        }
+    } else {
+        displayData(filteredDataByAnnotator);
+    }
+}
+
+        function filterDataByProjectType(data, projectType) {
+                return data.filter(row => row[2] === projectType);
+            }
+
+        function filterDataByAnnotator(data, annotatorId) {
+            const annotatorIndex = selectedTab === "Image Classification" ? 2 : 3; // Adjust the column index for annotator ID
+            return data.filter(row => row[annotatorIndex] === annotatorId);
+        }
+
+        function hideAnnotatorFilters() {
+            // projectTypeFilter.style.display = "none";
+            filterButton.style.display = "none";
+            annotatorFilter.style.display = "none";
+        }
+
+        function showAnnotatorFilters() {
+                filterButton.style.display = "block";
+                annotatorFilter.style.display = "block";
+                filterContainer.appendChild(annotatorFilter); // Append filter before the data table
+        }
+
+        function displayData(data) {
+            dataContainer.innerHTML = "";
+
+             // Display bar chart based on the filtered data
+             const chartDiv = document.getElementById("barChart");
+             const chartTitleDiv = document.getElementById("chartTitle");
+
+            if (data.length === 0){
+                const message = document.createElement("p");
+                message.textContent = "No data found for the provided Annotator ID. Please check that you typed in the correct annotator ID. Otherwise, participate in more projects to view your score.";
+                dataContainer.appendChild(message);
+                dataContainer.insertBefore(message, dataContainer.firstChild)
+
+                chartDiv.style.display = "none";
+                chartTitleDiv.style.display = "none";
+            } else {
+
+            const columnsToDisplay = selectedTab === "Image Classification"
+                ? [2, 3, 4, 5]
+                : [2, 3, 4, 5, 6, 7, 8, 9];
+            const columnHeadings = selectedTab === "Image Classification"
+                ? ["Annotator ID", "Total Correct Answers", "Total Wrong Answers", "Monthly Accuracy Score"]
+                : ["Project Type", "Annotator ID", "Total Correct Annotations", "Total Misdrawn Annotations", "Total Mislabeled Annotations", "Total Extra Annotations", "Total Missing Annotations", "Monthly Accuracy Score"];
+
+            // Create a table to display the data
+            const table = document.createElement("table");
+            table.classList.add("dataGrid");
+
+            // Create header row using specified column headings
+            const headerRow = document.createElement("tr");
+            for (const heading of columnHeadings) {
+                const th = document.createElement("th");
+                th.textContent = heading;
+                headerRow.appendChild(th);
+            }
+            table.appendChild(headerRow);
+
+            // Create data rows
+            for (let i = 0; i < data.length; i++) {
+                const dataRow = document.createElement("tr");
+                for (const columnIndex of columnsToDisplay) {
+                    const td = document.createElement("td");
+                    td.textContent = data[i][columnIndex];
+                    dataRow.appendChild(td);
+                }
+                table.appendChild(dataRow);
+            }
+
+            dataContainer.appendChild(table);
+
+            // // Display bar chart based on the filtered data
+            // const chartDiv = document.getElementById("barChart");
+            // const chartTitleDiv = document.getElementById("chartTitle");
+
+            chartDiv.style.display = "block";
+            chartTitleDiv.style.display = "block";
+
+            let chartTitle = "";
+
+            if (selectedTab === "Image Classification") {
+                // ... (Existing code)
+                chartTitle = "Total Correct and Wrong Answers";
+            } else if (selectedTab === "Image Annotation") {
+                // ... (Existing code)
+                chartTitle = "Total Annotation Mistakes by Type";
+            }
+
+            if (annotatorFilter.value.trim()) {
+                chartTitle += ` for ${selectedTab === "Image Classification" ? "Annotator" : "Annotator ID"} ${annotatorFilter.value.trim()}`;
+            }
+
+            chartTitleDiv.textContent = chartTitle;
+
+            if (selectedTab === "Image Classification") {
+                const correctAnswers = data.reduce((sum, row) => sum + parseInt(row[3]), 0);
+                const wrongAnswers = data.reduce((sum, row) => sum + parseInt(row[4]), 0);
+
+                const chartData = [
+                    {
+                        x: ["Correct Answers", "Wrong Answers"],
+                        y: [correctAnswers, wrongAnswers],
+                        type: "bar",
+                        marker: { color: ["green", "red"] }
+                    }
+                ];
+
+                // Create layout for the chart
+                const chartLayout = {
+                    plot_bgcolor: '#f2f2f2',  // Set the background color of the plot area
+                    paper_bgcolor: '#f2f2f2', // Set the background color of the entire chart
+                };
+
+                // Create a configuration object for the chart
+                const chartConfig = {
+                    data: chartData,
+                    layout: chartLayout,
+                };
+
+                // Create the bar chart using Plotly.newPlot
+                Plotly.newPlot(chartDiv, chartConfig);
+
+                // Plotly.newPlot(chartDiv, chartData);
+            } else if (selectedTab === "Image Annotation") {
+                const misdrawnAnnotations = data.reduce((sum, row) => sum + parseInt(row[5]), 0);
+                const mislabeledAnnotations = data.reduce((sum, row) => sum + parseInt(row[6]), 0);
+                const extraAnnotations = data.reduce((sum, row) => sum + parseInt(row[7]), 0);
+                const missingAnnotations = data.reduce((sum, row) => sum + parseInt(row[8]), 0);
+
+                const chartData = [
+                    {
+                        x: ["Misdrawn", "Mislabeled", "Extra", "Missing"],
+                        y: [misdrawnAnnotations, mislabeledAnnotations, extraAnnotations, missingAnnotations],
+                        type: "bar",
+                        marker: { color: ["blue", "purple", "orange", "gray"] }
+                    }
+                ];
+
+                // Create layout for the chart
+                const chartLayout = {
+                    plot_bgcolor: '#f2f2f2',  // Set the background color of the plot area
+                    paper_bgcolor: '#f2f2f2', // Set the background color of the entire chart
+                };
+
+                // Create a configuration object for the chart
+                const chartConfig = {
+                    data: chartData,
+                    layout: chartLayout,
+                };
+
+                // Create the bar chart using Plotly.newPlot
+                Plotly.newPlot(chartDiv, chartConfig);
+
+                // Plotly.newPlot(chartDiv, chartData);
+        }
+    }
+}
+
+        // Project Type Filter
+        function showFilter() {
+            projectTypeFilter.innerHTML = ""; // Clear previous options
+
+            const allOption = document.createElement("option");
+            allOption.value = "all";
+            allOption.textContent = "All Project Types";
+            projectTypeFilter.appendChild(allOption);
+
+            for (const type of projectTypes) {
+                const option = document.createElement("option");
+                option.value = type;
+                option.textContent = type;
+                projectTypeFilter.appendChild(option);
+            }
+
+            projectTypeFilter.style.display = "block";
+            filterContainer.appendChild(projectTypeFilter); // Append filter before the data table
+        }
+
+        function hideFilter() {
+            projectTypeFilter.style.display = "none";
+        }
+
+        projectTypeFilter.addEventListener("change", () => {
+            const selectedProjectType = projectTypeFilter.value;
+            if (selectedProjectType === "all") {
+                displayData(filteredData);
+            } else {
+                const filteredByProjectType = filteredData.filter(row => row[2] === selectedProjectType);
+                displayData(filteredByProjectType);
+            }
+        });
+
+        // function getUniqueProjectTypes(data) {
+        //     const types = new Set();
+        //     for (const row of data) {
+        //         types.add(row[2]);
+        //     }
+        //     return Array.from(types);
+        // }
+
+        function getUniqueProjectTypes() {
+            const hardcodedTypes = [
+                "Bounding Box",
+                "Polygon",
+                "Semantic Segmentation",
+                "Instance Segmentation",
+                "Planar Segmentation"
+            ];
+
+            return hardcodedTypes;
+        }
+    </script>
+</body>
+</html>

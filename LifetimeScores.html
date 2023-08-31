@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Sheets Data Retrieval</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+        }
+
+
+        /* Style for the table */
+        .data-table {
+            border-collapse: collapse; /* Combine cell borders */
+            width: 100%;
+            background-color: white; /* Set background color */
+            margin-top: 20px;
+            align-self: center;
+        }
+
+        /* Style for table header */
+        .data-table th {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: left;
+            background-color: #f2f2f2;
+        }
+
+        /* Style for table cells */
+        .data-table td {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+	.placeholder {
+            text-align: center;
+        	font-size: 24px; /* Adjust the font size as needed */
+        	opacity: 0.8;
+        	margin-top: 50px; /* Add some space from the top */
+    }
+
+/* Style for filter container */
+        .filter-container {
+            display: none;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        #annotatorIdInput {
+            font-size: 16px;
+            padding: 5px;
+            width: 200px;
+            margin-bottom: 20px;
+        }
+
+    /* Style for filter input fields */
+    .filter-container input {
+        flex: 1;
+        /* margin-right: 10px; */
+        padding: 8px;
+    }
+
+    /* Style for accuracy filter range slider */
+    #accuracyRange, #accuracyRangeMax {
+        flex: 2;
+        width: auto;
+    }
+
+    /* Add space between filters
+    .filter {
+           font-size: 16px;
+            padding: 5px;
+            width: 200px;
+            margin-bottom: 20px;
+        } */
+
+        #fetchButton {
+            background-color: #3c3c3c;
+            border: none;
+            border-radius: 3px;
+            color: #fff;
+            cursor: pointer;
+            margin-top: 10px;
+            padding: 8px 15px;
+            display: inline-block;
+            margin-left: 10px;
+            margin-bottom: 20px;
+        }
+
+
+    </style>
+</head>
+<body>
+    <!-- <h1>Lifetime Annotator Scorecards</h1> -->
+    
+    <input type="text" id="annotatorIdInput" placeholder="Enter Annotator ID">
+    <button id="fetchButton">Filter</button>
+
+    <!-- Filter input fields -->
+  <div class="filter-container" style="display: none;">
+    
+    <div id="monthYearFilterContainer" style="display: none;">
+        <label for="monthYearFilter">Filter by Month-Year:</label>
+        <input type="text" id="monthYearFilter" placeholder="Select Month-Year">
+    </div>
+
+    <input type="text" id="annotationTypeFilter" placeholder="Filter by Annotation Type">
+    <input type="text" id="newMonthYearFilter" placeholder="Filter by Month-Year">
+    <input type="text" id="projectNameFilter" placeholder="Filter by Project Name">
+    
+    <div id="accuracyFilter" style="display: none;">
+        <label for="accuracyRange">Filter by Accuracy:</label>
+        <input type="range" id="accuracyRange" min="0" max="100" step="1" value="0">
+        <output id="accuracyValue">0%</output> - <output id="accuracyValueMax">100%</output>
+        <input type="range" id="accuracyRangeMax" min="0" max="100" step="1" value="100">
+    </div>
+
+</div>
+    
+    <div id="dataContainer">
+        <p class="placeholder">Enter Annotator ID to view data</p>
+    </div>
+    
+    <script>
+        document.getElementById("fetchButton").addEventListener("click", fetchData);
+        
+        function fetchData() {
+            const annotatorId = document.getElementById("annotatorIdInput").value;
+            
+            // Remove the placeholder message
+            const placeholder = document.querySelector(".placeholder");
+            if (placeholder) {
+                placeholder.remove();
+            }
+            
+            // Initialize Google Sheets API
+            gapi.load("client", initClient);
+    }
+        
+        function initClient() {
+            gapi.client.init({
+                apiKey: "AIzaSyATmqw9OCHZrbU2fnwQ3eC2gkwYp5_GLc0", // Your Google Sheets API Key
+                discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"],
+            }).then(function() {
+                // Fetch data from the Google Sheet
+                gapi.client.sheets.spreadsheets.values.get({
+                    spreadsheetId: "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds", // ID of your Google Sheet
+                    range: "Kaya Scorecards", // Name of the sheet within the spreadsheet
+                }).then(function(response) {
+                    const data = response.result.values;
+                    const annotatorId = document.getElementById("annotatorIdInput").value;
+
+                    // Filter data based on the provided annotatorId
+                    let filteredData = data.filter(row => row[0] === annotatorId);
+
+                    const monthYearFilter = document.getElementById("monthYearFilter").value;
+                    const selectedMonthYear = monthYearFilter ? new Date(monthYearFilter) : null;
+
+                    // Filter based on the selected month and year
+                    if (selectedMonthYear) {
+                        const selectedMonth = selectedMonthYear.getMonth(); // Month is zero-based
+                        const selectedYear = selectedMonthYear.getFullYear();
+                        filteredData = filteredData.filter(row => {
+                            const [month, year] = row[1].split("-");
+                            const sheetMonth = getMonthNumber(month); // Convert month name to number (e.g., "November" to 11)
+                            return sheetMonth === selectedMonth && parseInt(year) === selectedYear;
+                        });
+                    }
+
+                    const newMonthYearFilter = document.getElementById("newMonthYearFilter").value.trim();
+                    if (newMonthYearFilter !== "") {
+                        filteredData = filteredData.filter(row => row[1].toLowerCase().includes(newMonthYearFilter.toLowerCase()));
+                    }
+
+                    const projectNameFilter = document.getElementById("projectNameFilter").value.trim();
+                    if (projectNameFilter !== "") {
+                        filteredData = filteredData.filter(row => row[4].toLowerCase().includes(projectNameFilter.toLowerCase()));
+                    }
+
+                    const annotationTypeFilter = document.getElementById("annotationTypeFilter").value.trim();
+                    if (annotationTypeFilter !== "") {
+                        filteredData = filteredData.filter(row => row[5].toLowerCase().includes(annotationTypeFilter.toLowerCase()));
+                    }
+
+                    const accuracyMin = parseInt(document.getElementById("accuracyRange").value);
+                    const accuracyMax = parseInt(document.getElementById("accuracyRangeMax").value);
+                    filteredData = filteredData.filter(row => {
+                        const accuracy = parseInt(row[6]);
+                        return accuracy >= accuracyMin && accuracy <= accuracyMax;
+                    });
+
+                    displayData(filteredData);
+                });
+            });
+        }
+
+document.getElementById("newMonthYearFilter").addEventListener("input", function() {
+    initClient(); // Call initClient to apply all filters again
+});
+
+document.getElementById("projectNameFilter").addEventListener("input", function() {
+    initClient(); // Call initClient to apply all filters again
+});
+
+document.getElementById("annotationTypeFilter").addEventListener("input", function() {
+    initClient(); // Call initClient to apply all filters again
+});
+
+const accuracyRange = document.getElementById("accuracyRange");
+const accuracyRangeMax = document.getElementById("accuracyRangeMax");
+const accuracyValueMax = document.getElementById("accuracyValueMax");
+
+accuracyRange.value = 0; // Set the initial minimum value
+accuracyRangeMax.value = 100; // Set the initial maximum value
+
+accuracyRange.addEventListener("input", updateAccuracyFilter);
+// accuracyRangeMax.addEventListener("input", updateAccuracyFilter);
+accuracyRangeMax.addEventListener("input", function() {
+        const max = parseInt(accuracyRangeMax.value);
+        accuracyValueMax.textContent = `${max}%`;
+        initClient(); // Call initClient to apply the accuracy filter
+    });
+
+function updateAccuracyFilter() {
+    const accuracyValue = document.getElementById("accuracyValue");
+    const accuracyValueMax = document.getElementById("accuracyValueMax");
+    const min = parseInt(accuracyRange.value);
+    const max = parseInt(accuracyRangeMax.value);
+    accuracyValue.textContent = `${min}%`;
+    accuracyValueMax.textContent = `${max}%`;
+    initClient(); // Call initClient to apply the accuracy filter
+}
+
+// Function to convert month name to number
+function getMonthNumber(monthName) {
+    const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+    return months.indexOf(monthName);
+}
+
+        function displayData(data) {
+            const dataContainer = document.getElementById("dataContainer");
+            dataContainer.innerHTML = ""; // Clear the data container before appending the table
+
+            if (data.length === 0) {
+                dataContainer.innerHTML = "<p>No data found for the provided Annotator ID. Please check that you typed in the correct annotator ID. Otherwise, participate in more projects to view your score.</p>";
+                return;
+            }
+
+            const table = document.createElement("table");
+            table.classList.add("data-table"); // Add a class to the table for styling
+
+            // Create the table header with the desired column headings
+            const tableHeader = document.createElement("tr");
+            tableHeader.innerHTML = "<th>Annotation Type</th><th>Month-Year</th><th>Project Name</th><th>Accuracy</th>";
+            table.appendChild(tableHeader);
+
+            // Create rows for each data entry with the desired columns
+            data.forEach(rowData => {
+                const row = document.createElement("tr");
+                // Columns you want to display: Annotation Type, Month-Year, Project Name, Accuracy
+                row.innerHTML = `<td>${rowData[5]}</td><td>${rowData[1]}</td><td>${rowData[4]}</td><td>${rowData[6]}</td>`;
+                table.appendChild(row);
+            });
+
+            dataContainer.appendChild(table);
+
+            const filterContainer = document.querySelector(".filter-container");
+            filterContainer.style.display = "block";
+        }
+
+
+
+    </script>
+</body>
+</html>
