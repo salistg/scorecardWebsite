@@ -148,6 +148,13 @@
             color: #fff;
         }
 
+        .popup-message {
+            display: none;
+            color: red;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
 
     </style>
     
@@ -174,6 +181,7 @@
     <div class="week-tabs-container" id="weekTabsContainer" style="display: none;"></div>
     <div class="project-tabs-container" id="projectTabsContainer" style="display: none;"></div>
 
+    <div id="popupMessage" style="display: none;" class="popup-message"></div>
     
     <div id="dataContainer">
         <p class="placeholder">Click on a tab to view data</p>
@@ -264,29 +272,34 @@
         }
 
         function populateWeekTabs(data) {
-    const filteredData = data.filter(row => row[1] === "July" && row[0] === "2023"); // Month at index 1, Year at index 0
-    const weekColumn = filteredData.map(row => row[2]); // Assuming Week column is at index 2
-    const uniqueWeeks = Array.from(new Set(weekColumn));
+            const filteredData = data.filter(row => row[1] === "July" && row[0] === "2023"); // Month at index 1, Year at index 0
+            const weekColumn = filteredData.map(row => row[2]); // Assuming Week column is at index 2
+            const uniqueWeeks = Array.from(new Set(weekColumn));
 
-    weekTabsContainer.innerHTML = "";
+            weekTabsContainer.innerHTML = "";
 
-    uniqueWeeks.forEach(week => {
-        const tabButton = document.createElement("button");
-        tabButton.className = "tab-button";
-        tabButton.textContent = week;
-        weekTabsContainer.appendChild(tabButton);
+            uniqueWeeks.forEach(week => {
+                const tabButton = document.createElement("button");
+                tabButton.className = "tab-button";
+                tabButton.textContent = week;
+                weekTabsContainer.appendChild(tabButton);
 
-        tabButton.addEventListener("click", () => {
-            selectedWeek = week;
-            fetchAndPopulateData(selectedWeek); // Fetch and populate data when week tab is clicked
+                tabButton.addEventListener("click", () => {
+                    selectedWeek = week;
+                    fetchAndPopulateData(selectedWeek); // Fetch and populate data when week tab is clicked
 
-            // Toggle the active class on the clicked tab and remove it from others
-            tabButton.classList.add("active");
-        });
-    });
+                    // Remove existing active class from tab buttons
+                    document.querySelectorAll(".tab-button").forEach(btn => {
+                                btn.classList.remove("active");
+                    });
 
-    weekTabsContainer.style.display = "block";
-}
+                    // Toggle the active class on the clicked tab and remove it from others
+                    tabButton.classList.add("active");
+                });
+            });
+
+            weekTabsContainer.style.display = "block";
+        }
 
 function fetchAndPopulateData(week) {
     dataContainer.innerHTML = ""; // Clear the data container
@@ -297,92 +310,108 @@ function fetchAndPopulateData(week) {
     populateProjectTabs(filteredData); // Use filteredData to populate project tabs
 }
 
-function populateProjectInfo(projectName, week, filteredData) {
-            gapi.client.sheets.spreadsheets.values.get({
-                spreadsheetId: "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds", // ID of your Google Sheet
-                range: `Overall project scores!A:G`, // Range to fetch data from 'Overall project scores' tab
-            }).then(function(response) {
-                // const projectInfo = response.result.values.find(row => row[2] === week && row[4] === projectName);
-                // console.log("Fetched Project Info:", projectInfo); // Add this line
-                console.log("Searching for week:", week);
-                console.log("Searching for project:", projectName);
-                const projectInfo = response.result.values.find(row => {
-                    console.log("Current row:", row);
-                    return row[2].toLowerCase() === week.toLowerCase() && row[4].toLowerCase() === projectName.toLowerCase();
-                });
-                console.log("Fetched Project Info:", projectInfo);
-
-                if (projectInfo) {
-                    const projectInfoContainer = document.createElement("div");
-                    
-                    // Create the Annotator ID input field and filter button
-                    const annotatorIdInput = document.createElement("input");
-                    annotatorIdInput.setAttribute("type", "text");
-                    annotatorIdInput.setAttribute("placeholder", "Enter Annotator ID");
-                    annotatorIdInput.id = "annotatorIdInput";
-
-                    const filterButton = document.createElement("button");
-                    filterButton.id = "filterButton";
-                    filterButton.textContent = "Filter";
-                    filterButton.addEventListener("click", () => {
-                        const annotatorId = document.getElementById("annotatorIdInput").value.trim();
-                        if (annotatorId === "") {
-                            populateProjectInfo(projectName, week, filteredData)
-                            displayData(filteredData); // Display full data if annotator ID is empty
-                        } else {
-                            currentFilteredData = filterDataByAnnotatorId(filteredData, annotatorId);
-                            if (currentFilteredData.length === 0){
-                                dataContainer.innerHTML = "";
-                                projectInfoContainer.innerHTML = "";
-
-                                const message = document.createElement("p");
-                                message.textContent = "No data found for the provided Annotator ID. Please check that you typed in the correct annotator ID. Otherwise, participate in more projects to view your score.";
-                                dataContainer.appendChild(message);
-                                // dataContainer.insertBefore(message, dataContainer.firstChild)
-                            } else {
-                            populateProjectInfo(projectName, week, filteredData)
-                            displayData(currentFilteredData);
-                            }
-                        }
-                    });
-
-                    const projectInfoName = document.createElement("p");
-                    projectInfoName.textContent = `Project Name: ${projectInfo[4]}`;
-
-                    const projectInfoID = document.createElement("p");
-                    projectInfoID.textContent = `Project ID: ${projectInfo[5]}`;
-
-                    const projectInfoType = document.createElement("p");
-                    projectInfoType.textContent = `Project Type: ${projectInfo[3]}`;
-
-                    const projectInfoAccuracy = document.createElement("p");
-                    projectInfoAccuracy.textContent = `Overall Project Accuracy: ${projectInfo[6]}`;
-
-                    // Determine the accuracy value and set the CSS class
-                    const accuracyValue = parseFloat(projectInfo[6]);
-                        if (accuracyValue >= 90) {
-                            projectInfoAccuracy.classList.add("high-accuracy");
-                        } else {
-                            projectInfoAccuracy.classList.add("low-accuracy");
-                        }
-
-                    projectInfoContainer.appendChild(projectInfoName);
-                    projectInfoContainer.appendChild(projectInfoID);
-                    projectInfoContainer.appendChild(projectInfoType);
-                    projectInfoContainer.appendChild(projectInfoAccuracy);
-
-                    dataContainer.appendChild(annotatorIdInput);
-                    dataContainer.appendChild(filterButton);
-
-                    dataContainer.insertBefore(filterButton, dataContainer.firstChild);
-                    dataContainer.insertBefore(annotatorIdInput, dataContainer.firstChild);
-                    
-                    dataContainer.appendChild(projectInfoContainer);
-
-                    dataContainer.insertBefore(projectInfoContainer, dataContainer.firstChild);
-
-                }
+    function populateProjectInfo(projectName, week, filteredData) {
+        gapi.client.sheets.spreadsheets.values.get({
+            spreadsheetId: "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds", // ID of your Google Sheet
+            range: `Overall project scores!A:G`, // Range to fetch data from 'Overall project scores' tab
+        }).then(function(response) {
+            const projectInfo = response.result.values.find(row => {
+                return row[2].toLowerCase() === week.toLowerCase() && row[4].toLowerCase() === projectName.toLowerCase();
             });
+
+            const projectInfoContainer = document.createElement("div");
+
+            if (projectInfo) {
+                const annotatorIdInput = document.createElement("input");
+                annotatorIdInput.setAttribute("type", "text");
+                annotatorIdInput.setAttribute("placeholder", "Enter Annotator ID");
+                annotatorIdInput.id = "annotatorIdInput";
+
+                const filterButton = document.createElement("button");
+                filterButton.id = "filterButton";
+                filterButton.textContent = "Filter";
+
+                filterButton.addEventListener("click", () => {
+                    const annotatorIdInput = document.getElementById("annotatorIdInput");
+                    const annotatorId = annotatorIdInput.value.trim();
+
+                    if (annotatorId === "") {
+                        showPopupMessage("Please enter an annotator ID", projectInfoContainer);
+                        setTimeout(hidePopupMessage, 3000);
+                    } else {
+                        hidePopupMessage();
+
+                        currentFilteredData = filterDataByAnnotatorId(filteredData, annotatorId);
+                        if (currentFilteredData.length === 0) {
+                            dataContainer.innerHTML = "";
+                            projectInfoContainer.innerHTML = "";
+
+                            const message = document.createElement("p");
+                            message.textContent = "No data found for the provided Annotator ID. Please check that you typed in the correct annotator ID. Otherwise, participate in more projects to view your score.";
+                            dataContainer.appendChild(message);
+                        } else {
+                            dataContainer.innerHTML = ""; // Clear the data container
+                            populateProjectInfo(projectName, week, filteredData); // Populate project info again
+                            displayData(currentFilteredData);
+                        }
+                    }
+                });
+
+                const projectInfoName = document.createElement("p");
+                projectInfoName.textContent = `Project Name: ${projectInfo[4]}`;
+
+                const projectInfoID = document.createElement("p");
+                projectInfoID.textContent = `Project ID: ${projectInfo[5]}`;
+
+                const projectInfoType = document.createElement("p");
+                projectInfoType.textContent = `Project Type: ${projectInfo[3]}`;
+
+                const projectInfoAccuracy = document.createElement("p");
+                projectInfoAccuracy.textContent = `Overall Project Accuracy: ${projectInfo[6]}`;
+
+                const accuracyValue = parseFloat(projectInfo[6]);
+                if (accuracyValue >= 90) {
+                    projectInfoAccuracy.classList.add("high-accuracy");
+                } else {
+                    projectInfoAccuracy.classList.add("low-accuracy");
+                }
+
+                projectInfoContainer.appendChild(projectInfoName);
+                projectInfoContainer.appendChild(projectInfoID);
+                projectInfoContainer.appendChild(projectInfoType);
+                projectInfoContainer.appendChild(projectInfoAccuracy);
+
+                dataContainer.appendChild(annotatorIdInput);
+                dataContainer.appendChild(filterButton);
+
+                dataContainer.insertBefore(filterButton, dataContainer.firstChild);
+                dataContainer.insertBefore(annotatorIdInput, dataContainer.firstChild);
+            } else {
+                // Handle the case when projectInfo is not found
+                dataContainer.innerHTML = "";
+
+                const message = document.createElement("p");
+                message.textContent = "Project information not found.";
+                dataContainer.appendChild(message);
+            }
+
+            dataContainer.appendChild(projectInfoContainer);
+            dataContainer.insertBefore(projectInfoContainer, dataContainer.firstChild)
+        });
+    }
+        
+
+        function showPopupMessage(message, container) {
+            const popupMessage = document.getElementById("popupMessage");
+            container.appendChild(popupMessage);
+            popupMessage.textContent = message;
+            popupMessage.style.display = "block";
+        }
+
+        function hidePopupMessage() {
+            const popupMessage = document.getElementById("popupMessage");
+            popupMessage.textContent = "";
+            popupMessage.style.display = "none";
         }
 
 
@@ -408,7 +437,11 @@ function populateProjectInfo(projectName, week, filteredData) {
                     const filteredData = filterDataByProject(data, project);
                     currentFilteredData = filteredData; // Store the filtered data
                     dataContainer.innerHTML = ""; // Clear the data container
-                    // populateProjectTabs(filteredData);
+
+                    document.querySelectorAll(".tab-button").forEach(btn => {
+                        btn.classList.remove("active");
+                    });
+
                     populateProjectInfo(project, selectedWeek, filteredData); // Fetch and display project info
                     displayData(filteredData);
 

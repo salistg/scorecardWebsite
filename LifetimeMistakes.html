@@ -71,6 +71,14 @@
             margin-bottom: 20px;
         }
 
+        .popup-message {
+            display: none;
+            color: red;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+
     </style>
 </head>
 <body>
@@ -80,20 +88,9 @@
         <!-- <label for="annotatorIdInput">Enter Annotator ID:</label> -->
         <input type="text" id="annotatorIdInput" placeholder="Enter Annotator ID">
         <button id="filterButton">Filter</button>
+        <div id="popupMessage" class="popup-message">Please enter an annotator ID</div>
     </div>
     
-    <!-- <div class="chart-container">
-        <p class="placeholder" id="annotationPlaceholder">Enter Annotator ID to view data</p>
-        <p id="imageAnnotationText"></p>
-        <p id="annotationAccuracyText"></p>
-        <div class="chart" id="annotationChart"></div> 
-    </div>
-
-    <div class="chart-container">
-        <p id="imageClassificationText"></p>
-        <p id="classificationAccuracyText"></p>
-        <div class="chart" id="classificationChart"></div>
-    </div> -->
 
     <div class="chart-container">
         <p class="placeholder" id="annotationPlaceholder">Enter Annotator ID to view data</p>
@@ -113,6 +110,9 @@
         const spreadsheetId = "1OhGhXRxBeEi4kTqqCwoIfrrfSHaBvMokqdovCeT4Wds";
         
         const filterButton = document.getElementById("filterButton");
+        const annotatorIdInput = document.getElementById("annotatorIdInput");
+        const popupMessage = document.getElementById("popupMessage");
+
         const annotationPlaceholder = document.getElementById("annotationPlaceholder");
         const annotationChartContainer = document.getElementById("annotationChart");
         const annotationAccuracyText = document.getElementById("annotationAccuracyText");
@@ -120,11 +120,25 @@
         const classificationAccuracyText = document.getElementById("classificationAccuracyText");
         
         filterButton.addEventListener("click", () => {
-            const annotatorId = document.getElementById("annotatorIdInput").value.trim();
-            if (annotatorId !== "") {
+            const annotatorId = annotatorIdInput.value.trim();
+            if (annotatorId === "") {
+                showPopupMessage("Please enter an annotator ID");
+                setTimeout(hidePopupMessage, 3000); // Hide the message after 3 seconds
+            } else {
+                hidePopupMessage();
                 fetchDataAndDisplay(annotatorId);
             }
         });
+
+        function showPopupMessage(message) {
+            popupMessage.textContent = message;
+            popupMessage.style.display = "block";
+        }
+
+        function hidePopupMessage() {
+            popupMessage.textContent = "";
+            popupMessage.style.display = "none";
+        }
 
         function fetchDataAndDisplay(annotatorId) {
             gapi.load("client", initClient);

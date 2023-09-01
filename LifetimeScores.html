@@ -13,6 +13,16 @@
             background-color: #f0f0f0;
         }
 
+        #filterContainer {
+            display: flex;
+            align-items: center; /* Vertically center align the items */
+            gap: 10px; /* Add some spacing between the button and message */
+        }
+
+        #popupMessage {
+            flex: 1; /* Allow the message to take available space */
+        }
+
 
         /* Style for the table */
         .data-table {
@@ -100,9 +110,18 @@
 </head>
 <body>
     <!-- <h1>Lifetime Annotator Scorecards</h1> -->
-    
-    <input type="text" id="annotatorIdInput" placeholder="Enter Annotator ID">
+
+    <div id="filterContainer">
+        <input type="text" id="annotatorIdInput" placeholder="Enter Annotator ID">
+        <button id="fetchButton">Filter</button>
+        <div id="popupMessage" style="color: red; font-size: 14px; display: none;"></div>
+    </div>
+
+    <!-- <input type="text" id="annotatorIdInput" placeholder="Enter Annotator ID">
     <button id="fetchButton">Filter</button>
+
+    <div id="popupMessage" style="color: red; font-size: 14px; margin-top: 5px; display: none;"></div> -->
+
 
     <!-- Filter input fields -->
   <div class="filter-container" style="display: none;">
@@ -133,7 +152,14 @@
         document.getElementById("fetchButton").addEventListener("click", fetchData);
         
         function fetchData() {
-            const annotatorId = document.getElementById("annotatorIdInput").value;
+            const annotatorIdInput = document.getElementById("annotatorIdInput");
+            const annotatorId = annotatorIdInput.value;
+
+            if (annotatorId.trim() === "") {
+                showPopupMessage("Please enter an annotator ID");
+                setTimeout(hidePopupMessage, 3000); // Hide the message after 3 seconds
+                return; // Exit the function without making the API call
+            }
             
             // Remove the placeholder message
             const placeholder = document.querySelector(".placeholder");
@@ -144,6 +170,18 @@
             // Initialize Google Sheets API
             gapi.load("client", initClient);
     }
+
+            function showPopupMessage(message) {
+                const popupMessage = document.getElementById("popupMessage");
+                popupMessage.textContent = message;
+                popupMessage.style.display = "block";
+            }
+
+            function hidePopupMessage() {
+                const popupMessage = document.getElementById("popupMessage");
+                popupMessage.textContent = "";
+                popupMessage.style.display = "none";
+            }
         
         function initClient() {
             gapi.client.init({
